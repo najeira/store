@@ -26,3 +26,7 @@ value := store.Get(key, func() interface{} {
 // delete the element.
 store.Del(key)
 ```
+
+## License
+
+MIT
