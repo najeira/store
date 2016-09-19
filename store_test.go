@@ -23,7 +23,7 @@ func (v *testValuer) do() int64 {
 	return v.counter
 }
 
-func TestStoreGetDel(t *testing.T) {
+func TestMemoryGetDel(t *testing.T) {
 	var v testValuer
 	store := New()
 
@@ -50,7 +50,7 @@ func TestStoreGetDel(t *testing.T) {
 	}
 }
 
-func TestStoreConcurrency(t *testing.T) {
+func TestMemoryConcurrency(t *testing.T) {
 	concurrency := 1000
 
 	var counter int64 = 0
@@ -84,7 +84,7 @@ func TestStoreConcurrency(t *testing.T) {
 	wg.Wait()
 }
 
-func BenchmarkStore(b *testing.B) {
+func BenchmarkMemory(b *testing.B) {
 	b.ReportAllocs()
 
 	concurrency := 1000

@@ -4,18 +4,25 @@ import (
 	"sync"
 )
 
-type Store struct {
+type Store interface {
+	Get(key interface{}, fn func() interface{}) interface{}
+	Del(key interface{})
+}
+
+type Memory struct {
 	mu     sync.RWMutex
 	values map[interface{}]interface{}
 }
 
-func New() *Store {
-	return &Store{
+var _ Store = (*Memory)(nil)
+
+func New() *Memory {
+	return &Memory{
 		values: make(map[interface{}]interface{}),
 	}
 }
 
-func (s *Store) Get(key interface{}, fn func() interface{}) interface{} {
+func (s *Memory) Get(key interface{}, fn func() interface{}) interface{} {
 	// lock to read
 	s.mu.RLock()
 	v, ok := s.values[key]
@@ -53,7 +60,7 @@ func (s *Store) Get(key interface{}, fn func() interface{}) interface{} {
 	return p.value
 }
 
-func (s *Store) Del(key interface{}) {
+func (s *Memory) Del(key interface{}) {
 	s.mu.Lock()
 	delete(s.values, key)
 	s.mu.Unlock()
