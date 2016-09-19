@@ -43,7 +43,7 @@ func (s *Redis) key(key interface{}) string {
 	return s.prefix + keyStr
 }
 
-func (s *Redis) Get(key interface{}, fn func() interface{}) interface{} {
+func (s *Redis) Fetch(key interface{}, fn func() interface{}) interface{} {
 	keyStr := s.key(key)
 	value, err := s.client.Get(keyStr)
 	if err == nil {
@@ -81,6 +81,16 @@ func (s *Redis) Get(key interface{}, fn func() interface{}) interface{} {
 	// return and unlock placeholder
 	p.value = value
 	return p.value
+}
+
+func (s *Redis) Get(key interface{}) (interface{}, bool) {
+	keyStr := s.key(key)
+	value, err := s.client.Get(keyStr)
+	return value, (err == nil)
+}
+
+func (s *Redis) Set(key interface{}, value interface{}) {
+	s.client.Set(s.key(key), conv.String(value), s.age)
 }
 
 func (s *Redis) Del(key interface{}) {

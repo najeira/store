@@ -38,7 +38,7 @@ func (r *testRedisClient) Del(key string) (bool, error) {
 	return ok, nil
 }
 
-func TestRedisGetDel(t *testing.T) {
+func TestRedisFetch(t *testing.T) {
 	store := NewRedis(RedisOptions{
 		Client: nil,
 		Prefix: "entry_",
@@ -49,7 +49,7 @@ func TestRedisGetDel(t *testing.T) {
 	store.client = &testRedisClient{values: make(map[string]string)}
 
 	for i := 0; i < 3; i++ {
-		ret := store.Get("key", func() interface{} {
+		ret := store.Fetch("key", func() interface{} {
 			return "ok"
 		})
 		rs := ret.(string)
@@ -61,7 +61,7 @@ func TestRedisGetDel(t *testing.T) {
 	store.Del("key")
 
 	for i := 0; i < 3; i++ {
-		ret := store.Get("key", func() interface{} {
+		ret := store.Fetch("key", func() interface{} {
 			return "ok2"
 		})
 		rs := ret.(string)

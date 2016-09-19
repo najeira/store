@@ -23,12 +23,12 @@ func (v *testValuer) do() int64 {
 	return v.counter
 }
 
-func TestMemoryGetDel(t *testing.T) {
+func TestMemoryFetch(t *testing.T) {
 	var v testValuer
 	store := New()
 
 	for i := 0; i < 3; i++ {
-		ret := store.Get("key", func() interface{} {
+		ret := store.Fetch("key", func() interface{} {
 			return v.do()
 		})
 		retint := ret.(int64)
@@ -40,7 +40,7 @@ func TestMemoryGetDel(t *testing.T) {
 	store.Del("key")
 
 	for i := 0; i < 3; i++ {
-		ret := store.Get("key", func() interface{} {
+		ret := store.Fetch("key", func() interface{} {
 			return v.do()
 		})
 		retint := ret.(int64)
@@ -74,7 +74,7 @@ func TestMemoryConcurrency(t *testing.T) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < 1000; j++ {
-				v := store.Get("key", creater)
+				v := store.Fetch("key", creater)
 				if s, _ := v.(string); s != "ok" {
 					t.Fatal(s)
 				}
@@ -100,7 +100,7 @@ func BenchmarkMemory(b *testing.B) {
 		go func() {
 			defer wg.Done()
 			for j := 0; j < b.N; j++ {
-				store.Get("key", creater)
+				store.Fetch("key", creater)
 				if rand.Int63()%1000 == 0 {
 					store.Del("key")
 				}

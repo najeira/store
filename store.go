@@ -5,7 +5,9 @@ import (
 )
 
 type Store interface {
-	Get(key interface{}, fn func() interface{}) interface{}
+	Fetch(key interface{}, fn func() interface{}) interface{}
+	Get(key interface{}) (interface{}, bool)
+	Set(key interface{}, value interface{})
 	Del(key interface{})
 }
 
@@ -22,7 +24,7 @@ func New() *Memory {
 	}
 }
 
-func (s *Memory) Get(key interface{}, fn func() interface{}) interface{} {
+func (s *Memory) Fetch(key interface{}, fn func() interface{}) interface{} {
 	// lock to read
 	s.mu.RLock()
 	v, ok := s.values[key]
@@ -58,6 +60,22 @@ func (s *Memory) Get(key interface{}, fn func() interface{}) interface{} {
 
 	// return and unlock placeholder
 	return p.value
+}
+
+func (s *Memory) Get(key interface{}) (interface{}, bool) {
+	s.mu.RLock()
+	v, ok := s.values[key]
+	s.mu.RUnlock()
+	if !ok {
+		return nil, false
+	}
+	return getValue(v), true
+}
+
+func (s *Memory) Set(key interface{}, value interface{}) {
+	s.mu.Lock()
+	s.values[key] = value
+	s.mu.Unlock()
 }
 
 func (s *Memory) Del(key interface{}) {
