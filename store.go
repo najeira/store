@@ -5,8 +5,8 @@ import (
 )
 
 type Store struct {
-	values map[interface{}]interface{}
 	mu     sync.RWMutex
+	values map[interface{}]interface{}
 }
 
 func New() *Store {
@@ -60,16 +60,20 @@ func (s *Store) Del(key interface{}) {
 }
 
 type placeHolder struct {
-	value interface{}
 	mu    sync.RWMutex
+	value interface{}
+}
+
+func (p *placeHolder) get() interface{} {
+	p.mu.RLock()
+	v := p.value
+	p.mu.RUnlock()
+	return v
 }
 
 func getValue(v interface{}) interface{} {
-	if ver, ok := v.(*placeHolder); ok {
-		ver.mu.RLock()
-		ret := ver.value
-		ver.mu.RUnlock()
-		return ret
+	if p, ok := v.(*placeHolder); ok {
+		return p.get()
 	}
 	return v
 }

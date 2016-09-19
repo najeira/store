@@ -51,8 +51,7 @@ func TestStoreGetDel(t *testing.T) {
 }
 
 func TestStoreConcurrency(t *testing.T) {
-	concurrency := 100
-	N := 100000 / concurrency
+	concurrency := 1000
 
 	var counter int64 = 0
 	store := New()
@@ -74,7 +73,7 @@ func TestStoreConcurrency(t *testing.T) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < N; j++ {
+			for j := 0; j < 1000; j++ {
 				v := store.Get("key", creater)
 				if s, _ := v.(string); s != "ok" {
 					t.Fatal(s)
@@ -88,9 +87,7 @@ func TestStoreConcurrency(t *testing.T) {
 func BenchmarkStore(b *testing.B) {
 	b.ReportAllocs()
 
-	concurrency := 100
-	N := b.N / concurrency
-
+	concurrency := 1000
 	store := New()
 	creater := func() interface{} {
 		time.Sleep(time.Millisecond * 100)
@@ -102,9 +99,9 @@ func BenchmarkStore(b *testing.B) {
 		wg.Add(1)
 		go func() {
 			defer wg.Done()
-			for j := 0; j < N; j++ {
+			for j := 0; j < b.N; j++ {
 				store.Get("key", creater)
-				if rand.Int63()%100 == 0 {
+				if rand.Int63()%1000 == 0 {
 					store.Del("key")
 				}
 			}
