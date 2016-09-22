@@ -1,72 +1,71 @@
 package store
 
 import (
-	"sync"
 	"testing"
-	"time"
 
 	"gopkg.in/redis.v4"
 )
 
 type testRedisClient struct {
-	mu     sync.RWMutex
-	values map[string]string
+	store *Memory
 }
 
 func (r *testRedisClient) Get(key string) (string, error) {
-	r.mu.RLock()
-	v, ok := r.values[key]
-	r.mu.RUnlock()
+	v, ok := r.store.Get(key)
 	if !ok {
 		return "", redis.Nil
 	}
-	return v, nil
+	return v.(string), nil
 }
 
-func (r *testRedisClient) Set(key string, value string, expiration time.Duration) error {
-	r.mu.Lock()
-	r.values[key] = value
-	r.mu.Unlock()
+func (r *testRedisClient) Set(key string, value string) error {
+	r.store.Set(key, value)
 	return nil
 }
 
-func (r *testRedisClient) Del(key string) (bool, error) {
-	r.mu.Lock()
-	_, ok := r.values[key]
-	delete(r.values, key)
-	r.mu.Unlock()
-	return ok, nil
+func (r *testRedisClient) Del(keys ...string) (int64, error) {
+	for _, key := range keys {
+		r.store.Del(key)
+	}
+	return int64(len(keys)), nil
+}
+
+func (r *testRedisClient) Incr(field string, incr int64) (int64, error) {
+	return r.store.Incr(field, incr), nil
+}
+
+func (r *testRedisClient) Clear() error {
+	r.store.Clear()
+	return nil
 }
 
 func TestRedisFetch(t *testing.T) {
-	store := NewRedis(RedisOptions{
-		Client: nil,
-		Prefix: "entry_",
-		Age:    time.Second * 60,
-	})
+	store := NewRedis(nil, "test/")
 
 	// for testing
-	store.client = &testRedisClient{values: make(map[string]string)}
+	store.client = &testRedisClient{store: NewMemory()}
 
 	for i := 0; i < 3; i++ {
-		ret := store.Fetch("key", func() interface{} {
+		ret, err := store.Fetch("key", func() string {
 			return "ok"
 		})
-		rs := ret.(string)
-		if rs != "ok" {
-			t.Errorf("got %s expect ok", rs)
+		if err != nil {
+			t.Error(err)
+		} else if ret != "ok" {
+			t.Errorf("got %s expect ok", ret)
 		}
 	}
 
 	store.Del("key")
 
 	for i := 0; i < 3; i++ {
-		ret := store.Fetch("key", func() interface{} {
+		ret, err := store.Fetch("key", func() string {
 			return "ok2"
 		})
-		rs := ret.(string)
-		if rs != "ok2" {
-			t.Errorf("got %s expect ok2", rs)
+		if err != nil {
+			t.Error(err)
+		} else if ret != "ok2" {
+			t.Errorf("got %s expect ok2", ret)
 		}
 	}
 }

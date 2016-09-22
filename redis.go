@@ -3,59 +3,43 @@ package store
 import (
 	"fmt"
 	"sync"
-	"time"
 
 	"github.com/najeira/conv"
 	"gopkg.in/redis.v4"
 )
 
-type RedisOptions struct {
-	Client *redis.Client
-	Prefix string
-	Age    time.Duration
-}
-
 type Redis struct {
 	client redisClient
-	prefix string
-	age    time.Duration
+	key    string
 
 	mu           sync.RWMutex
 	placeHolders map[string]*placeHolder
 }
 
-var _ Store = (*Memory)(nil)
-
-func NewRedis(opt RedisOptions) *Redis {
+func NewRedis(client *redis.Client, key string) *Redis {
 	return &Redis{
-		client:       &redisClientWrapper{opt.Client},
-		prefix:       opt.Prefix,
-		age:          opt.Age,
+		client: &redisClientWrapper{
+			client: client,
+			key:    key,
+		},
 		placeHolders: make(map[string]*placeHolder),
 	}
 }
 
-func (s *Redis) key(key interface{}) string {
-	keyStr := conv.String(key)
-	if keyStr == "" {
-		panic(fmt.Errorf("invalid key %v", key))
-	}
-	return s.prefix + keyStr
-}
-
-func (s *Redis) Fetch(key interface{}, fn func() interface{}) interface{} {
-	keyStr := s.key(key)
-	value, err := s.client.Get(keyStr)
+func (s *Redis) Fetch(field string, fn func() string) (string, error) {
+	value, err := s.client.Get(field)
 	if err == nil {
-		return value
+		// no more needs placeholder
+		s.deletePlaceHolder(field)
+		return value, nil
 	}
 
 	// lock to write
 	s.mu.Lock()
-	p, ok := s.placeHolders[keyStr]
+	p, ok := s.placeHolders[field]
 	if ok {
 		s.mu.Unlock()
-		return p.get()
+		return getValueAndError(p)
 	}
 
 	// lock placeholder to wait new value
@@ -64,58 +48,102 @@ func (s *Redis) Fetch(key interface{}, fn func() interface{}) interface{} {
 	defer p.mu.Unlock()
 
 	// add placeholder to map then others wait on the placeholder
-	s.placeHolders[keyStr] = p
+	s.placeHolders[field] = p
 	s.mu.Unlock()
 
 	// get new value
 	value = conv.String(fn())
 
 	// store the value
-	s.client.Set(keyStr, value, s.age)
-
-	// no more needs placeholder
-	s.mu.Lock()
-	delete(s.placeHolders, keyStr)
-	s.mu.Unlock()
+	s.client.Set(field, value)
 
 	// return and unlock placeholder
 	p.value = value
-	return p.value
+	return value, nil
 }
 
-func (s *Redis) Get(key interface{}) (interface{}, bool) {
-	keyStr := s.key(key)
-	value, err := s.client.Get(keyStr)
-	return value, (err == nil)
+func (s *Redis) Get(field string) (string, error) {
+	v, err := s.client.Get(field)
+	if err != nil && err != redis.Nil {
+		return v, err
+	}
+	return v, nil
 }
 
-func (s *Redis) Set(key interface{}, value interface{}) {
-	s.client.Set(s.key(key), conv.String(value), s.age)
+func (s *Redis) Set(field string, value string) error {
+	return s.client.Set(field, conv.String(value))
 }
 
-func (s *Redis) Del(key interface{}) {
-	s.client.Del(s.key(key))
+func (s *Redis) Del(field string) error {
+	_, err := s.client.Del(field)
+	return err
+}
+
+func (s *Redis) Incr(field string, incr int64) (int64, error) {
+	return s.client.Incr(field, incr)
+}
+
+func (s *Redis) Clear() error {
+	return s.client.Clear()
+}
+
+func (s *Redis) deletePlaceHolder(field string) {
+	s.mu.RLock()
+	_, ok := s.placeHolders[field]
+	s.mu.RUnlock()
+	if ok {
+		s.mu.Lock()
+		delete(s.placeHolders, field)
+		s.mu.Unlock()
+	}
 }
 
 type redisClient interface {
-	Get(key string) (string, error)
-	Set(key string, value string, expiration time.Duration) error
-	Del(key string) (bool, error)
+	Get(field string) (string, error)
+	Set(field string, value string) error
+	Del(fields ...string) (int64, error)
+	Incr(field string, incr int64) (int64, error)
+	Clear() error
 }
 
 type redisClientWrapper struct {
 	client *redis.Client
+	key    string
 }
 
-func (r *redisClientWrapper) Get(key string) (string, error) {
-	return r.client.Get(key).Result()
+func (r *redisClientWrapper) Get(field string) (string, error) {
+	return r.client.HGet(r.key, field).Result()
 }
 
-func (r *redisClientWrapper) Set(key string, value string, expiration time.Duration) error {
-	return r.client.Set(key, value, expiration).Err()
+func (r *redisClientWrapper) Set(field string, value string) error {
+	return r.client.HSet(r.key, field, value).Err()
 }
 
-func (r *redisClientWrapper) Del(key string) (bool, error) {
-	n, err := r.client.Del(key).Result()
-	return n > 0, err
+func (r *redisClientWrapper) Del(fields ...string) (int64, error) {
+	return r.client.HDel(r.key, fields...).Result()
+}
+
+func (r *redisClientWrapper) Incr(field string, incr int64) (int64, error) {
+	n, err := r.client.HIncrBy(r.key, field, incr).Result()
+	return n, err
+}
+
+func (r *redisClientWrapper) Clear() error {
+	_, err := r.client.Del(r.key).Result()
+	return err
+}
+
+func getValueAndError(p *placeHolder) (string, error) {
+	if p == nil {
+		return "", nil
+	}
+	if v := p.get(); v == nil {
+		return "", nil
+	} else if err, ok := v.(error); ok {
+		return "", err
+	} else if str, ok := v.(string); ok {
+		return str, nil
+	} else {
+		return "", fmt.Errorf("invalid type %T", v)
+	}
 }
