@@ -74,9 +74,8 @@ func (s *Redis) Set(field string, value string) error {
 	return s.client.Set(field, conv.String(value))
 }
 
-func (s *Redis) Del(field string) error {
-	_, err := s.client.Del(field)
-	return err
+func (s *Redis) Del(fields ...string) (int64, error) {
+	return s.client.Del(fields...)
 }
 
 func (s *Redis) Incr(field string, incr int64) (int64, error) {
