@@ -25,7 +25,7 @@ func (v *testValuer) do() int64 {
 
 func TestMemoryFetch(t *testing.T) {
 	var v testValuer
-	store := New()
+	store := NewMemory()
 
 	for i := 0; i < 3; i++ {
 		ret := store.Fetch("key", func() interface{} {
@@ -54,7 +54,7 @@ func TestMemoryConcurrency(t *testing.T) {
 	concurrency := 1000
 
 	var counter int64 = 0
-	store := New()
+	store := NewMemory()
 	creater := func() interface{} {
 		n := atomic.AddInt64(&counter, 1)
 		if n != 1 {
@@ -88,7 +88,7 @@ func BenchmarkMemory(b *testing.B) {
 	b.ReportAllocs()
 
 	concurrency := 1000
-	store := New()
+	store := NewMemory()
 	creater := func() interface{} {
 		time.Sleep(time.Millisecond * 100)
 		return "ok"

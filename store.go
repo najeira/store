@@ -2,23 +2,16 @@ package store
 
 import (
 	"sync"
-)
 
-type Store interface {
-	Fetch(key interface{}, fn func() interface{}) interface{}
-	Get(key interface{}) (interface{}, bool)
-	Set(key interface{}, value interface{})
-	Del(key interface{})
-}
+	"github.com/najeira/conv"
+)
 
 type Memory struct {
 	mu     sync.RWMutex
 	values map[interface{}]interface{}
 }
 
-var _ Store = (*Memory)(nil)
-
-func New() *Memory {
+func NewMemory() *Memory {
 	return &Memory{
 		values: make(map[interface{}]interface{}),
 	}
@@ -66,10 +59,7 @@ func (s *Memory) Get(key interface{}) (interface{}, bool) {
 	s.mu.RLock()
 	v, ok := s.values[key]
 	s.mu.RUnlock()
-	if !ok {
-		return nil, false
-	}
-	return getValue(v), true
+	return getValue(v), ok
 }
 
 func (s *Memory) Set(key interface{}, value interface{}) {
@@ -84,6 +74,46 @@ func (s *Memory) Del(key interface{}) {
 	s.mu.Unlock()
 }
 
+func (s *Memory) Incr(key interface{}, incr int64) int64 {
+	var next int64 = incr
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if v, ok := s.values[key]; ok {
+		next = conv.Int(v) + incr
+	}
+	s.values[key] = next
+	return next
+}
+
+func (s *Memory) Decr(key interface{}, decr int64) int64 {
+	return s.Incr(key, 0-decr)
+}
+
+func (s *Memory) IncrF(key interface{}, incr float64) float64 {
+	var next float64 = incr
+
+	s.mu.Lock()
+	defer s.mu.Unlock()
+
+	if v, ok := s.values[key]; ok {
+		next = conv.Float(v) + incr
+	}
+	s.values[key] = next
+	return next
+}
+
+func (s *Memory) DecrF(key interface{}, decr float64) float64 {
+	return s.IncrF(key, 0-decr)
+}
+
+func (s *Memory) Clear() {
+	s.mu.Lock()
+	s.values = make(map[interface{}]interface{})
+	s.mu.Unlock()
+}
+
 type placeHolder struct {
 	mu    sync.RWMutex
 	value interface{}
@@ -91,13 +121,15 @@ type placeHolder struct {
 
 func (p *placeHolder) get() interface{} {
 	p.mu.RLock()
-	v := p.value
+	value := p.value
 	p.mu.RUnlock()
-	return v
+	return value
 }
 
 func getValue(v interface{}) interface{} {
-	if p, ok := v.(*placeHolder); ok {
+	if v == nil {
+		return nil
+	} else if p, ok := v.(*placeHolder); ok {
 		return p.get()
 	}
 	return v
