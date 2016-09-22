@@ -82,12 +82,16 @@ func (s *Redis) Incr(field string, incr int64) (int64, error) {
 	return s.client.Incr(field, incr)
 }
 
+func (s *Redis) Decr(field string, decr int64) (int64, error) {
+	return s.client.Incr(field, 0-decr)
+}
+
 func (s *Redis) IncrF(field string, incr float64) (float64, error) {
 	return s.client.IncrF(field, incr)
 }
 
-func (s *Redis) Decr(field string, decr int64) (int64, error) {
-	return s.client.Incr(field, 0-decr)
+func (s *Redis) DecrF(field string, decr float64) (float64, error) {
+	return s.client.IncrF(field, 0-decr)
 }
 
 func (s *Redis) Clear() error {
