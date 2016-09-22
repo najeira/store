@@ -103,6 +103,7 @@ type redisClient interface {
 	Set(field string, value string) error
 	Del(fields ...string) (int64, error)
 	Incr(field string, incr int64) (int64, error)
+	IncrF(field string, incr float64) (float64, error)
 	Clear() error
 }
 
@@ -125,6 +126,11 @@ func (r *redisClientWrapper) Del(fields ...string) (int64, error) {
 
 func (r *redisClientWrapper) Incr(field string, incr int64) (int64, error) {
 	n, err := r.client.HIncrBy(r.key, field, incr).Result()
+	return n, err
+}
+
+func (r *redisClientWrapper) IncrF(field string, incr float64) (float64, error) {
+	n, err := r.client.HIncrByFloat(r.key, field, incr).Result()
 	return n, err
 }
 

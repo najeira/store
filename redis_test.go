@@ -34,6 +34,10 @@ func (r *testRedisClient) Incr(field string, incr int64) (int64, error) {
 	return r.store.Incr(field, incr), nil
 }
 
+func (r *testRedisClient) IncrF(field string, incr float64) (float64, error) {
+	return r.store.IncrF(field, incr), nil
+}
+
 func (r *testRedisClient) Clear() error {
 	r.store.Clear()
 	return nil
