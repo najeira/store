@@ -23,6 +23,43 @@ func (v *testValuer) do() int64 {
 	return v.counter
 }
 
+func TestMemoryGetSet(t *testing.T) {
+	store := NewMemory()
+	v, ok := store.Get("test")
+	if ok {
+		t.Errorf("ok is true")
+	} else if v != nil {
+		t.Errorf("got %v", v)
+	}
+
+	var i int64 = 12345
+	store.Set("test", i)
+	v, ok = store.Get("test")
+	if !ok {
+		t.Errorf("ok is false")
+	} else if v == nil {
+		t.Errorf("v is nil")
+	} else {
+		j, ok := v.(int64)
+		if !ok {
+			t.Errorf("ok is false")
+		} else if j != i {
+			t.Errorf("got %d expect %d", j, i)
+		}
+	}
+}
+
+func TestMemorySetNil(t *testing.T) {
+	store := NewMemory()
+	store.Set("test", nil)
+	v, ok := store.Get("test")
+	if !ok {
+		t.Errorf("ok is false")
+	} else if v != nil {
+		t.Errorf("v is %v", v)
+	}
+}
+
 func TestMemoryFetch(t *testing.T) {
 	var v testValuer
 	store := NewMemory()
